@@ -1,0 +1,50 @@
+name: CI api rest
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        app: [fastapi, django]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install Dependencies
+      run: |
+        if [ "${{ matrix.app }}" == "fastapi" ]; then
+          pip install -r fastapi/requirements.txt
+        elif [ "${{ matrix.app }}" == "django" ]; then
+          pip install -r django/requirements.txt
+        fi
+
+    - name: Run Unit Tests
+      run: |
+        if [ "${{ matrix.app }}" == "fastapi" ]; then
+          pytest fastapi/tests
+        elif [ "${{ matrix.app }}" == "django" ]; then
+          python django/manage.py test
+        fi
+
+    - name: Build Artifacts (Optional, if needed for further steps)
+      run: |
+        if [ "${{ matrix.app }}" == "fastapi" ]; then
+          echo "FastAPI does not require compilation."
+        elif [ "${{ matrix.app }}" == "django" ]; then
+          python django/manage.py collectstatic --no-input
+        fi

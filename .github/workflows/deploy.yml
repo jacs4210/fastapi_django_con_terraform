@@ -1,0 +1,54 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        app: [fastapi, django]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Log in to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build Docker Image
+      run: |
+        if [ "${{ matrix.app }}" == "fastapi" ]; then
+          docker build -t fastapi-app:latest -f fastapi/Dockerfile fastapi
+          docker tag fastapi-app:latest $ACCOUNT_ID_AWS.dkr.ecr.us-east.amazonaws.com/fastapi-app:latest
+        elif [ "${{ matrix.app }}" == "django" ]; then
+          docker build -t django-app:latest -f django/Dockerfile django
+          docker tag django-app:latest $ACCOUNT_ID_AWS.dkr.ecr.us-east.amazonaws.com/django-app:latest
+
+    - name: Push Docker Image to Amazon ECR
+      run: |
+        if [ "${{ matrix.app }}" == "fastapi" ]; then
+          docker push $ACCOUNT_ID_AWS.dkr.ecr.us-east.amazonaws.com/fastapi-app:latest
+        elif [ "${{ matrix.app }}" == "django" ]; then
+          docker push $ACCOUNT_ID_AWS.dkr.ecr.us-east.amazonaws.com/django-app:latest
+
+    - name: Deploy to ECS
+      env:
+        AWS_REGION: us-east
+        CLUSTER_NAME: my-cluster
+      run: |
+        if [ "${{ matrix.app }}" == "fastapi" ]; then
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service fastapi-service \
+            --force-new-deployment
+        elif [ "${{ matrix.app }}" == "django" ]; then
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service django-service \
+            --force-new-deployment
